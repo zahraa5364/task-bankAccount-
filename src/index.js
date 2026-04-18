@@ -1,5 +1,4 @@
-import { bootstrap } from "./app.controller.js";
 import "dotenv/config";
-bootstrap();
+import { bootstrap } from "./app.controller.js";
 
-console.log("next =", typeof next);
+bootstrap();

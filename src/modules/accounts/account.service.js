@@ -109,25 +109,25 @@ export const withdraw = async (req, res, next) => {
 
 
 export const transfer = async (req, res, next) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const { amount, toAccountNumber, description } = req.body;
 
     if (!amount || amount <= 0) {
-      await session.abortTransaction();
-      return res.status(400).json({ success: false, message: "Amount must be a positive number." });
+      return res.status(400).json({
+        success: false,
+        message: "Amount must be a positive number.",
+      });
     }
 
-    const senderAccount = await Account.findOne({ userId: req.user._id }).session(session);
+    const senderAccount = await Account.findOne({ userId: req.user._id });
     if (!senderAccount) {
-      await session.abortTransaction();
-      return res.status(404).json({ success: false, message: "Your account not found." });
+      return res.status(404).json({
+        success: false,
+        message: "Your account not found.",
+      });
     }
 
     if (senderAccount.status !== "active") {
-      await session.abortTransaction();
       return res.status(400).json({
         success: false,
         message: `Cannot transfer. Your account is ${senderAccount.status}.`,
@@ -135,85 +135,75 @@ export const transfer = async (req, res, next) => {
     }
 
     if (senderAccount.balance < amount) {
-      await session.abortTransaction();
       return res.status(400).json({
         success: false,
         message: `Insufficient balance. Available: ${senderAccount.balance}`,
       });
     }
 
-    const receiverAccount = await Account.findOne({ accountNumber: toAccountNumber }).session(session);
+    const receiverAccount = await Account.findOne({ accountNumber: toAccountNumber });
     if (!receiverAccount) {
-      await session.abortTransaction();
-      return res.status(404).json({ success: false, message: "Recipient account not found." });
+      return res.status(404).json({
+        success: false,
+        message: "Recipient account not found.",
+      });
     }
 
     if (receiverAccount._id.equals(senderAccount._id)) {
-      await session.abortTransaction();
-      return res.status(400).json({ success: false, message: "Cannot transfer to your own account." });
+      return res.status(400).json({
+        success: false,
+        message: "Cannot transfer to your own account.",
+      });
     }
 
     if (receiverAccount.status !== "active") {
-      await session.abortTransaction();
-      return res.status(400).json({ success: false, message: "Recipient account is not active." });
+      return res.status(400).json({
+        success: false,
+        message: "Recipient account is not active.",
+      });
     }
 
-  
     const senderBalanceBefore = senderAccount.balance;
     senderAccount.balance -= amount;
-    await senderAccount.save({ session });
-
+    await senderAccount.save();
 
     const receiverBalanceBefore = receiverAccount.balance;
     receiverAccount.balance += amount;
-    await receiverAccount.save({ session });
+    await receiverAccount.save();
 
+    await Transaction.create({
+      accountId: senderAccount._id,
+      type: "transfer",
+      amount,
+      balanceBefore: senderBalanceBefore,
+      balanceAfter: senderAccount.balance,
+      relatedAccountId: receiverAccount._id,
+      description: description || `Transfer to ${toAccountNumber}`,
+    });
 
-    await Transaction.create(
-      [
-        {
-          accountId: senderAccount._id,
-          type: "transfer",
-          amount,
-          balanceBefore: senderBalanceBefore,
-          balanceAfter: senderAccount.balance,
-          relatedAccountId: receiverAccount._id,
-          description: description || `Transfer to ${toAccountNumber}`,
-        },
-      ],
-      { session }
-    );
-
-    await Transaction.create(
-      [
-        {
-          accountId: receiverAccount._id,
-          type: "transfer",
-          amount,
-          balanceBefore: receiverBalanceBefore,
-          balanceAfter: receiverAccount.balance,
-          relatedAccountId: senderAccount._id,
-          description: `Transfer received from ${senderAccount.accountNumber}`,
-        },
-      ],
-      { session }
-    );
-
-    await session.commitTransaction();
+    await Transaction.create({
+      accountId: receiverAccount._id,
+      type: "transfer",
+      amount,
+      balanceBefore: receiverBalanceBefore,
+      balanceAfter: receiverAccount.balance,
+      relatedAccountId: senderAccount._id,
+      description: `Transfer received from ${senderAccount.accountNumber}`,
+    });
 
     return res.status(200).json({
       success: true,
       message: "Transfer successful.",
-      data: { amount, newBalance: senderAccount.balance },
+      data: {
+        amount,
+        newBalance: senderAccount.balance,
+      },
     });
+
   } catch (error) {
-    await session.abortTransaction();
     next(error);
-  } finally {
-    session.endSession();
   }
 };
-
 
 export const getSummary = async (req, res, next) => {
   try {

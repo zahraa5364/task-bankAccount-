@@ -6,8 +6,6 @@ import transactionController from "./modules/transactions/transaction.controller
 
 export const bootstrap = async () => {
   const app = express();
-
-  
   const PORT = 3000;
 
   app.use(express.json());
@@ -26,10 +24,8 @@ export const bootstrap = async () => {
   });
 
   app.use((err, req, res, next) => {
-    console.error(" Error:", err.message);
-    const statusCode = err.statusCode || 500;
-
-    return res.status(statusCode).json({
+    console.error("Error:", err);
+    res.status(err.statusCode || 500).json({
       success: false,
       message: err.message || "Internal Server Error",
     });

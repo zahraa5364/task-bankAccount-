@@ -6,6 +6,7 @@ import * as accountService from "./account.service.js";
 
 const router = Router();
 
+router.use(authMiddleware);
 
 
 const amountSchema = Joi.object({

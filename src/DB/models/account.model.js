@@ -11,7 +11,7 @@ const accountSchema = new mongoose.Schema(
     accountNumber: {
       type: String,
       unique: true,
-      required: true,
+      default: () => "ACC" + Date.now() + Math.floor(Math.random() * 1000),
     },
     balance: {
       type: Number,
@@ -32,12 +32,6 @@ const accountSchema = new mongoose.Schema(
 );
 
 
-accountSchema.pre("save", async function (next) {
-  if (this.isNew && !this.accountNumber) {
-    this.accountNumber = "ACC" + Date.now() + Math.floor(Math.random() * 1000);
-  }
-  next();
-});
 
 const Account = mongoose.model("Account", accountSchema);
 export default Account;
